@@ -23,7 +23,7 @@ fn read_input(prompt: &str) -> String {
 
 fn format_date_ddmmyyyy(input: &str) -> Option<String> {
     let cleaned: String = input.chars().filter(|c| c.is_numeric()).collect();
-
+    
     if cleaned.len() == 8 {
         let day = &cleaned[0..2];
         let month = &cleaned[2..4];
@@ -47,6 +47,7 @@ fn detect_printers() -> Vec<PrinterDevice> {
     let mut printers = Vec::new();
 
     let usbmisc_path = Path::new("/sys/class/usbmisc");
+
     if !usbmisc_path.exists() {
         return printers;
     }
@@ -100,11 +101,10 @@ fn generate_zpl(
     format!(
         r#"^XA
 ^FO30,30^A0N,25,25^FD{}, {}^FS
-^FO30,55^A0N,25,25^FDGender: {}^FS
-^FO30,80^A0N,25,25^FDDOB: {}^FS
-^FO30,105^A0N,25,25^FDPrinted: {}^FS
+^FO30,55^A0N,25,25^FD{}, {}^FS
+^FO30,80^A0N,25,25^FDPrinted: {}^FS
 ^XZ"#,
-        last_name.to_uppercase(), first_name.to_uppercase(), gender.to_uppercase(), dob, current_datetime
+        last_name.to_uppercase(), first_name.to_uppercase(), dob, gender.to_uppercase(), current_datetime
     )
 }
 
@@ -156,6 +156,8 @@ fn main() {
     let number: i32 = num_labels.trim().parse().expect("Please enter a valid integer");
 
     let zpl = generate_zpl(&first_name, &last_name, &gender, &dob, &current_datetime);
+    
+    // println!("{}", zpl); // debug
 
     for _x in 0..number {
         match print_label(&zpl, &printer_path) {
