@@ -1,0 +1,12 @@
+[package]
+name = "label_printer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Stephen Pope <stephenytr@gmail.com>"]
+description = "CLI tool for printing patient labels on Zebra printers"
+repository = "https://github.com/username/label_printer"
+license = "MIT"
+keywords = ["zebra", "printer", "zpl", "healthcare", "labels"]
+
+[dependencies]
+chrono = "0.4"
