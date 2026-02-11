@@ -149,41 +149,7 @@ label_printer/
 ├── src/
 │   └── main.rs         # Main application logic
 ├── Cargo.toml          # Project manifest
-├── AGENTS.md           # Development guidelines
 └── README.md           # This file
-```
-
-### Building
-
-```bash
-# Debug build
-cargo build
-
-# Release build (optimized)
-cargo build --release
-
-# Check for errors without building
-cargo check
-```
-
-### Code Quality
-
-```bash
-# Format code
-cargo fmt
-
-# Run linter
-cargo clippy
-
-# Run linter on all targets
-cargo clippy --all-targets
-```
-
-### Testing
-
-```bash
-# Run tests (none currently defined)
-cargo test
 ```
 
 ## How It Works
@@ -222,15 +188,6 @@ Verify device exists:
 ls -l /dev/usb/lp*
 ```
 
-### Permission Denied
-
-Ensure user has write access:
-```bash
-sudo chmod 666 /dev/usb/lp0
-# or
-sudo usermod -a -G lp $USER
-```
-
 ### Invalid Date Format
 
 Date must be 8 digits (DDMMYYYY) or formatted with slashes (DD/MM/YYYY).
@@ -256,4 +213,3 @@ When contributing, please:
 1. Follow Rust standard formatting (`cargo fmt`)
 2. Ensure code passes linting (`cargo clippy`)
 3. Test manually with connected printer
-4. Refer to AGENTS.md for detailed development guidelines
