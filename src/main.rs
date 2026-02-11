@@ -11,6 +11,17 @@ struct PrinterDevice {
     vendor_id: String,
 }
 
+#[derive(Debug)]
+struct Data {
+    first_name: String,
+    last_name: String,
+    dob: String,
+    gender: String,
+    current_datetime: String,
+    barcode_bool: bool,
+    barcode: String
+}
+
 fn read_input(prompt: &str) -> String {
     print!("{}", prompt);
     io::stdout().flush().unwrap();
@@ -91,21 +102,36 @@ fn find_zebra_printer() -> Option<PathBuf> {
         .map(|p| p.device_path)
 }
 
-fn generate_zpl(
-    first_name: &str,
-    last_name: &str,
-    gender: &str,
-    dob: &str,
-    current_datetime: &str,
-) -> String {
-    format!(
-        r#"^XA
-^FO30,30^A0N,25,25^FD{}, {}^FS
-^FO30,55^A0N,25,25^FD{}, {}^FS
-^FO30,80^A0N,25,25^FDPrinted: {}^FS
-^XZ"#,
-        last_name.to_uppercase(), first_name.to_uppercase(), dob, gender.to_uppercase(), current_datetime
-    )
+fn generate_zpl(data: &Data) -> String {
+    if data.barcode_bool {
+        format!(
+            r#"^XA
+    ^FO40,30^A0N,25,25^FD{}, {}^FS
+    ^FO40,55^A0N,25,25^FDDOB: {}, {}^FS
+    ^FO40,80^A0N,25,25^FDDate: {}^FS
+    ^FO40,105^BY3^BCN,70,Y,N,N,A^FD{}^FS
+    ^XZ"#,
+            data.last_name.to_uppercase(), 
+            data.first_name.to_uppercase(), 
+            data.dob, 
+            data.gender.to_uppercase(), 
+            data.current_datetime,
+            data.barcode
+        )
+    } else {
+        format!(
+            r#"^XA
+    ^FO40,30^A0N,25,25^FD{}, {}^FS
+    ^FO40,55^A0N,25,25^FDDOB: {}, {}^FS
+    ^FO40,80^A0N,25,25^FDDate: {}^FS
+    ^XZ"#,
+            data.last_name.to_uppercase(), 
+            data.first_name.to_uppercase(), 
+            data.dob, 
+            data.gender.to_uppercase(), 
+            data.current_datetime
+        )
+    }
 }
 
 fn print_label(zpl: &str, printer_path: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -135,37 +161,60 @@ fn main() {
     let printer_path = default_path;
 
     println!("\n--- New Label ---");
-
-    let first_name = read_input("First name: ");
-    let last_name = read_input("Last name: ");
-    let gender = read_input("Gender: ");
-
-    let dob = loop {
-        let input = read_input("Date of birth (DDMMYYYY or DD/MM/YYYY): ");
-        if let Some(formatted) = format_date_ddmmyyyy(&input) {
-            break formatted;
-        } else {
-            println!("Invalid date format. Please use DDMMYYYY or DD/MM/YYYY");
-        }
+    let mut data: Data = Data { 
+        first_name: read_input("First name: "),
+        last_name: read_input("Last name: "), 
+        dob: loop {
+            let input = read_input("Date of birth (DDMMYYYY or DD/MM/YYYY): ");
+            if let Some(formatted) = format_date_ddmmyyyy(&input) {
+                break formatted;
+            } else {
+                println!("Invalid date format. Please use DDMMYYYY or DD/MM/YYYY");
+            }
+        }, 
+        gender: read_input("Gender: "), 
+        current_datetime: Local::now().format("%d/%m/%Y, %H:%M").to_string(), 
+        barcode_bool: matches!(read_input("Do you want to print a barcode? (Y/N): ").as_str(), "Y" | "y"), 
+        barcode: "0".to_string()
     };
 
-    let current_datetime = Local::now().format("%d/%m/%Y %H:%M").to_string();
+    if data.barcode_bool {
+        data.barcode = read_input("Please enter a barcode: ");
+    }
 
     let num_labels = read_input("Num Labels: ");
 
     let number: i32 = num_labels.trim().parse().expect("Please enter a valid integer");
 
-    let zpl = generate_zpl(&first_name, &last_name, &gender, &dob, &current_datetime);
+    let zpl = generate_zpl(&data);
     
-    // println!("{}", zpl); // debug
+    let mut unsuccsessful: bool = false;
 
-    for _x in 0..number {
-        match print_label(&zpl, &printer_path) {
-            Ok(_) => println!("\n✓ Label sent to printer successfully!"),
-            Err(e) => {
-                eprintln!("\n✗ Error printing label: {}", e);
-                eprintln!("Make sure the printer is connected at: {}", printer_path);
+    loop {
+        for _x in 0..number {
+            match print_label(&zpl, &printer_path) {
+                Ok(_) => {
+                    println!("\n✓ Label sent to printer successfully!");
+                    unsuccsessful = false;
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!("\n✗ Error printing label: {}", e);
+                    eprintln!("Make sure the printer is connected at: {}", printer_path);
+                    unsuccsessful = true;
+                    break;
+                }
             }
+        }
+        if unsuccsessful {
+            let try_again = read_input("Try again? (Y/N): ");
+            match try_again.as_str() {
+                "y" | "Y" | "yes" => continue,
+                _ => break,
+                
+            }
+        } else {
+            break
         }
     }
 }       
