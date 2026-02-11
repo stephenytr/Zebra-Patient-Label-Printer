@@ -19,7 +19,7 @@ struct Data {
     gender: String,
     current_datetime: String,
     barcode_bool: bool,
-    barcode: String
+    barcode: String,
 }
 
 fn read_input(prompt: &str) -> String {
@@ -34,7 +34,7 @@ fn read_input(prompt: &str) -> String {
 
 fn format_date_ddmmyyyy(input: &str) -> Option<String> {
     let cleaned: String = input.chars().filter(|c| c.is_numeric()).collect();
-    
+
     if cleaned.len() == 8 {
         let day = &cleaned[0..2];
         let month = &cleaned[2..4];
@@ -95,11 +95,42 @@ fn detect_printers() -> Vec<PrinterDevice> {
     printers
 }
 
-fn find_zebra_printer() -> Option<PathBuf> {
+fn find_zebra_printers() -> Vec<PrinterDevice> {
     detect_printers()
         .into_iter()
-        .find(|p| p.vendor_id == ZEBRA_VENDOR_ID)
-        .map(|p| p.device_path)
+        .filter(|p| p.vendor_id == ZEBRA_VENDOR_ID)
+        .collect()
+}
+
+fn select_printer(printers: Vec<PrinterDevice>) -> Option<PathBuf> {
+    match printers.len() {
+        0 => None,
+        1 => {
+            println!(
+                "✓ Detected Zebra printer at: {}",
+                printers[0].device_path.display()
+            );
+            Some(printers[0].device_path.clone())
+        }
+        _ => {
+            println!("✓ Detected {} Zebra printers:", printers.len());
+            for (i, printer) in printers.iter().enumerate() {
+                println!("  {}. {}", i + 1, printer.device_path.display());
+            }
+
+            loop {
+                let choice = read_input(&format!("Select printer (1-{}): ", printers.len()));
+                if let Ok(num) = choice.parse::<usize>() {
+                    if num > 0 && num <= printers.len() {
+                        let selected = &printers[num - 1];
+                        println!("✓ Selected: {}", selected.device_path.display());
+                        return Some(selected.device_path.clone());
+                    }
+                }
+                println!("Invalid selection. Please try again.");
+            }
+        }
+    }
 }
 
 fn generate_zpl(data: &Data) -> String {
@@ -111,10 +142,10 @@ fn generate_zpl(data: &Data) -> String {
     ^FO40,80^A0N,25,25^FDDate: {}^FS
     ^FO40,105^BY3^BCN,70,Y,N,N,A^FD{}^FS
     ^XZ"#,
-            data.last_name.to_uppercase(), 
-            data.first_name.to_uppercase(), 
-            data.dob, 
-            data.gender.to_uppercase(), 
+            data.last_name.to_uppercase(),
+            data.first_name.to_uppercase(),
+            data.dob,
+            data.gender.to_uppercase(),
             data.current_datetime,
             data.barcode
         )
@@ -125,10 +156,10 @@ fn generate_zpl(data: &Data) -> String {
     ^FO40,55^A0N,25,25^FDDOB: {}, {}^FS
     ^FO40,80^A0N,25,25^FDDate: {}^FS
     ^XZ"#,
-            data.last_name.to_uppercase(), 
-            data.first_name.to_uppercase(), 
-            data.dob, 
-            data.gender.to_uppercase(), 
+            data.last_name.to_uppercase(),
+            data.first_name.to_uppercase(),
+            data.dob,
+            data.gender.to_uppercase(),
             data.current_datetime
         )
     }
@@ -146,24 +177,19 @@ fn print_label(zpl: &str, printer_path: &str) -> Result<(), Box<dyn std::error::
 fn main() {
     println!("=== Label Printer ===");
 
-    let detected_printer = find_zebra_printer();
-    let default_path = match &detected_printer {
-        Some(path) => {
-            println!("✓ Detected Zebra printer at: {}", path.display());
-            path.to_string_lossy().to_string()
-        }
+    let zebra_printers = find_zebra_printers();
+    let printer_path = match select_printer(zebra_printers) {
+        Some(path) => path.to_string_lossy().to_string(),
         None => {
             println!("⚠ No Zebra printer detected, using default path");
             "/dev/usb/lp0".to_string()
         }
     };
 
-    let printer_path = default_path;
-
     println!("\n--- New Label ---");
-    let mut data: Data = Data { 
+    let mut data: Data = Data {
         first_name: read_input("First name: "),
-        last_name: read_input("Last name: "), 
+        last_name: read_input("Last name: "),
         dob: loop {
             let input = read_input("Date of birth (DDMMYYYY or DD/MM/YYYY): ");
             if let Some(formatted) = format_date_ddmmyyyy(&input) {
@@ -171,11 +197,14 @@ fn main() {
             } else {
                 println!("Invalid date format. Please use DDMMYYYY or DD/MM/YYYY");
             }
-        }, 
-        gender: read_input("Gender: "), 
-        current_datetime: Local::now().format("%d/%m/%Y, %H:%M").to_string(), 
-        barcode_bool: matches!(read_input("Do you want to print a barcode? (Y/N): ").as_str(), "Y" | "y"), 
-        barcode: "0".to_string()
+        },
+        gender: read_input("Gender: "),
+        current_datetime: Local::now().format("%d/%m/%Y, %H:%M").to_string(),
+        barcode_bool: matches!(
+            read_input("Do you want to print a barcode? (Y/N): ").as_str(),
+            "Y" | "y"
+        ),
+        barcode: "0".to_string(),
     };
 
     if data.barcode_bool {
@@ -184,10 +213,13 @@ fn main() {
 
     let num_labels = read_input("Num Labels: ");
 
-    let number: i32 = num_labels.trim().parse().expect("Please enter a valid integer");
+    let number: i32 = num_labels
+        .trim()
+        .parse()
+        .expect("Please enter a valid integer");
 
     let zpl = generate_zpl(&data);
-    
+
     let mut unsuccsessful: bool = false;
 
     loop {
@@ -211,11 +243,9 @@ fn main() {
             match try_again.as_str() {
                 "y" | "Y" | "yes" => continue,
                 _ => break,
-                
             }
         } else {
-            break
+            break;
         }
     }
-}       
-
+}
